@@ -1,0 +1,8 @@
+/.dockerignore
+/docker/
+/src/vendor/
+/src/node_modules/
+.git/
+.gitignore
+*.md
+.docker/
