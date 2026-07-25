@@ -62,13 +62,31 @@ services:
     networks:
       - supermarket-network
 
-  node:
-    image: node:20-alpine
-    container_name: supermarket-node
-    working_dir: /var/www/html
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: supermarket-frontend:latest
+    container_name: supermarket-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - nginx
+    networks:
+      - supermarket-network
+
+  frontend-dev:
+    image: node:22-alpine
+    container_name: supermarket-frontend-dev
+    working_dir: /app
     volumes:
-      - ./src:/var/www/html
-    entrypoint: ["tail", "-f", "/dev/null"]
+      - ./frontend:/app
+    ports:
+      - "5173:5173"
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    depends_on:
+      - nginx
     networks:
       - supermarket-network
 
