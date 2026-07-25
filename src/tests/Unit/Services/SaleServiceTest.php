@@ -4,6 +4,7 @@ namespace Tests\Unit\Services;
 
 use App\Contracts\ProductRepositoryInterface;
 use App\Contracts\SaleRepositoryInterface;
+use App\Contracts\StockServiceInterface;
 use App\Models\Product;
 use App\Services\SaleService;
 use Illuminate\Foundation\Testing\TestCase;
@@ -12,18 +13,20 @@ use Mockery;
 class SaleServiceTest extends TestCase
 {
     private SaleService $saleService;
-    private ProductRepositoryInterface $productRepository;
+    private StockServiceInterface $stockService;
 
     protected function setUp(): void
     {
         parent::setUp();
 
         $saleRepository = Mockery::mock(SaleRepositoryInterface::class);
-        $this->productRepository = Mockery::mock(ProductRepositoryInterface::class);
+        $productRepository = Mockery::mock(ProductRepositoryInterface::class);
+        $this->stockService = Mockery::mock(StockServiceInterface::class);
 
         $this->saleService = new SaleService(
             $saleRepository,
-            $this->productRepository,
+            $productRepository,
+            $this->stockService,
         );
     }
 
@@ -34,20 +37,14 @@ class SaleServiceTest extends TestCase
             ['product_id' => 2, 'quantity' => 3],
         ];
 
-        $this->productRepository
-            ->shouldReceive('find')
-            ->with(1)
-            ->andReturn(new Product(['price' => 10.50]));
-
-        $this->productRepository
-            ->shouldReceive('find')
-            ->with(2)
-            ->andReturn(new Product(['price' => 5.25]));
+        $this->stockService
+            ->shouldReceive('calculateTotal')
+            ->with($items)
+            ->andReturn((10.50 * 2) + (5.25 * 3));
 
         $total = $this->saleService->calculateTotal($items);
 
-        $expected = (10.50 * 2) + (5.25 * 3);
-        $this->assertEquals($expected, $total);
+        $this->assertEquals((10.50 * 2) + (5.25 * 3), $total);
     }
 
     public function test_calculate_total_with_single_item(): void
@@ -56,10 +53,10 @@ class SaleServiceTest extends TestCase
             ['product_id' => 1, 'quantity' => 5],
         ];
 
-        $this->productRepository
-            ->shouldReceive('find')
-            ->with(1)
-            ->andReturn(new Product(['price' => 20.00]));
+        $this->stockService
+            ->shouldReceive('calculateTotal')
+            ->with($items)
+            ->andReturn(100.00);
 
         $total = $this->saleService->calculateTotal($items);
 
@@ -68,9 +65,14 @@ class SaleServiceTest extends TestCase
 
     public function test_calculate_total_returns_zero_for_empty_items(): void
     {
+        $this->stockService
+            ->shouldReceive('calculateTotal')
+            ->with([])
+            ->andReturn(0.0);
+
         $total = $this->saleService->calculateTotal([]);
 
-        $this->assertEquals(0, $total);
+        $this->assertEquals(0.0, $total);
     }
 
     protected function tearDown(): void

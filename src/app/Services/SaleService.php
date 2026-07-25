@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
-use App\Contracts\FiscalProviderInterface;
 use App\Contracts\ProductRepositoryInterface;
 use App\Contracts\SaleRepositoryInterface;
+use App\Contracts\StockServiceInterface;
 use App\Enums\StockMovementType;
 use App\Jobs\IssueFiscalDocumentJob;
 use Illuminate\Support\Facades\DB;
@@ -15,42 +15,21 @@ class SaleService
     public function __construct(
         private readonly SaleRepositoryInterface $saleRepository,
         private readonly ProductRepositoryInterface $productRepository,
+        private readonly StockServiceInterface $stockService,
     ) {}
 
     public function createSale(array $items): array
     {
-        $total = 0;
-        $productData = [];
-
-        foreach ($items as $item) {
-            $product = $this->productRepository->find($item['product_id']);
-
-            if ($product->stock_quantity < $item['quantity']) {
-                throw new \RuntimeException(
-                    "Estoque insuficiente para o produto '{$product->name}' (SKU: {$product->sku}). "
-                    . "Disponível: {$product->stock_quantity}, Solicitado: {$item['quantity']}"
-                );
-            }
-
-            $subtotal = $product->price * $item['quantity'];
-            $total += $subtotal;
-
-            $productData[] = [
-                'product' => $product,
-                'quantity' => $item['quantity'],
-                'unit_price' => $product->price,
-                'subtotal' => $subtotal,
-            ];
-        }
+        $prepared = $this->stockService->verifyAndPrepare($items);
 
         DB::beginTransaction();
         try {
             $sale = $this->saleRepository->create([
-                'total' => $total,
+                'total' => $prepared['total'],
                 'status' => 'completed',
             ]);
 
-            foreach ($productData as $data) {
+            foreach ($prepared['items'] as $data) {
                 $this->saleRepository->addItem($sale, [
                     'product_id' => $data['product']->id,
                     'quantity' => $data['quantity'],
@@ -81,11 +60,11 @@ class SaleService
 
         Log::info('Venda finalizada', [
             'sale_id' => $sale->id,
-            'total' => $total,
+            'total' => $prepared['total'],
             'itens' => count($items),
         ]);
 
-        IssueFiscalDocumentJob::dispatch($sale->id, $total);
+        IssueFiscalDocumentJob::dispatch($sale->id, $prepared['total']);
 
         $sale->load('items.product');
 
@@ -94,13 +73,6 @@ class SaleService
 
     public function calculateTotal(array $items): float
     {
-        $total = 0;
-
-        foreach ($items as $item) {
-            $product = $this->productRepository->find($item['product_id']);
-            $total += $product->price * $item['quantity'];
-        }
-
-        return $total;
+        return $this->stockService->calculateTotal($items);
     }
 }
