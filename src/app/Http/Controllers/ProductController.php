@@ -2,18 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Contracts\ProductRepositoryInterface;
 use App\Http\Requests\ProductRequest;
-use App\Models\Product;
-use App\Repositories\ProductRepository;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use OpenApi\Attributes as OA;
 
 class ProductController extends Controller
 {
     public function __construct(
-        private readonly ProductRepository $productRepository,
+        private readonly ProductRepositoryInterface $productRepository,
     ) {}
 
     #[OA\Get(path: '/api/products', summary: 'Listar produtos', tags: ['Produtos'])]

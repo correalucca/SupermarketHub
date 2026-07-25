@@ -3,7 +3,7 @@
 namespace App\Jobs;
 
 use App\Contracts\FiscalProviderInterface;
-use App\Repositories\SaleRepository;
+use App\Contracts\SaleRepositoryInterface;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -22,7 +22,7 @@ class IssueFiscalDocumentJob implements ShouldQueue
 
     public function handle(
         FiscalProviderInterface $fiscalProvider,
-        SaleRepository $saleRepository,
+        SaleRepositoryInterface $saleRepository,
     ): void {
         $protocol = $fiscalProvider->emitInvoice([
             'sale_id' => $this->saleId,

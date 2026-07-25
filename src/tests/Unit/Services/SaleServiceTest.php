@@ -2,9 +2,9 @@
 
 namespace Tests\Unit\Services;
 
+use App\Contracts\ProductRepositoryInterface;
+use App\Contracts\SaleRepositoryInterface;
 use App\Models\Product;
-use App\Repositories\ProductRepository;
-use App\Repositories\SaleRepository;
 use App\Services\SaleService;
 use Illuminate\Foundation\Testing\TestCase;
 use Mockery;
@@ -12,14 +12,14 @@ use Mockery;
 class SaleServiceTest extends TestCase
 {
     private SaleService $saleService;
-    private ProductRepository $productRepository;
+    private ProductRepositoryInterface $productRepository;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $saleRepository = Mockery::mock(SaleRepository::class);
-        $this->productRepository = Mockery::mock(ProductRepository::class);
+        $saleRepository = Mockery::mock(SaleRepositoryInterface::class);
+        $this->productRepository = Mockery::mock(ProductRepositoryInterface::class);
 
         $this->saleService = new SaleService(
             $saleRepository,

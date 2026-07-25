@@ -2,10 +2,11 @@
 
 namespace App\Repositories;
 
+use App\Contracts\SaleRepositoryInterface;
 use App\Models\Sale;
 use App\Models\SaleItem;
 
-class SaleRepository
+class SaleRepository implements SaleRepositoryInterface
 {
     public function create(array $data): Sale
     {

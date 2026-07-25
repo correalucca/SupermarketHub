@@ -3,19 +3,18 @@
 namespace App\Services;
 
 use App\Contracts\FiscalProviderInterface;
+use App\Contracts\ProductRepositoryInterface;
+use App\Contracts\SaleRepositoryInterface;
 use App\Enums\StockMovementType;
 use App\Jobs\IssueFiscalDocumentJob;
-use App\Models\Product;
-use App\Repositories\ProductRepository;
-use App\Repositories\SaleRepository;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class SaleService
 {
     public function __construct(
-        private readonly SaleRepository $saleRepository,
-        private readonly ProductRepository $productRepository,
+        private readonly SaleRepositoryInterface $saleRepository,
+        private readonly ProductRepositoryInterface $productRepository,
     ) {}
 
     public function createSale(array $items): array
