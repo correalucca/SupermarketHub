@@ -47,9 +47,13 @@ return Application::configure(basePath: dirname(__DIR__))
                 ? $e->getStatusCode()
                 : (($code = $e->getCode()) >= 100 && $code <= 599 ? $code : 500);
 
+            $message = app()->isProduction()
+                ? 'Erro interno do servidor.'
+                : ($e->getMessage() ?: 'Erro interno do servidor.');
+
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage() ?: 'Erro interno do servidor.',
+                'message' => $message,
                 'code' => $statusCode,
             ], $statusCode);
         });

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Product;
+use App\Models\User;
 use App\Jobs\IssueFiscalDocumentJob;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
@@ -13,11 +14,20 @@ class SaleFlowTest extends TestCase
     use RefreshDatabase;
 
     private Product $product;
+    private array $authHeaders;
 
     protected function setUp(): void
     {
         parent::setUp();
         Queue::fake();
+
+        $user = User::factory()->create([
+            'email' => 'test@example.com',
+            'password' => bcrypt('password'),
+        ]);
+
+        $token = $user->createToken('test-token')->plainTextToken;
+        $this->authHeaders = ['Authorization' => 'Bearer ' . $token];
 
         $this->product = Product::factory()->create([
             'sku' => 'TEST-001',
@@ -36,7 +46,7 @@ class SaleFlowTest extends TestCase
             ],
         ];
 
-        $response = $this->postJson('/api/sales', $payload);
+        $response = $this->postJson('/api/sales', $payload, $this->authHeaders);
 
         $response->assertStatus(201);
         $response->assertJson([
@@ -45,7 +55,7 @@ class SaleFlowTest extends TestCase
         ]);
 
         $responseData = $response->json('data');
-        $this->assertEquals(75.00, $responseData['total']); // 25 * 3
+        $this->assertEquals(75.00, $responseData['total']);
         $this->assertEquals('completed', $responseData['status']);
 
         $this->assertDatabaseHas('sales', [
@@ -77,7 +87,7 @@ class SaleFlowTest extends TestCase
             ],
         ];
 
-        $response = $this->postJson('/api/sales', $payload);
+        $response = $this->postJson('/api/sales', $payload, $this->authHeaders);
 
         $response->assertStatus(500);
         $response->assertJson([
@@ -94,7 +104,7 @@ class SaleFlowTest extends TestCase
             'items' => [
                 ['product_id' => 999, 'quantity' => 1],
             ],
-        ]);
+        ], $this->authHeaders);
 
         $response->assertStatus(422);
         $response->assertJson([

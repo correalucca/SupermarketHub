@@ -14,4 +14,6 @@ interface ProductRepositoryInterface
     public function update(int $id, array $data): Product;
     public function delete(int $id): void;
     public function decrementStock(int $id, float $quantity): void;
+    public function findWithLock(int $id): Product;
+    public function createStockMovement(int $productId, array $data): void;
 }

@@ -11,13 +11,15 @@ class StockService implements StockServiceInterface
         private readonly ProductRepositoryInterface $productRepository,
     ) {}
 
-    public function verifyAndPrepare(array $items): array
+    public function verifyAndPrepare(array $items, bool $lock = false): array
     {
         $total = 0;
         $productData = [];
 
         foreach ($items as $item) {
-            $product = $this->productRepository->find($item['product_id']);
+            $product = $lock
+                ? $this->productRepository->findWithLock($item['product_id'])
+                : $this->productRepository->find($item['product_id']);
 
             if ($product->stock_quantity < $item['quantity']) {
                 throw new \RuntimeException(

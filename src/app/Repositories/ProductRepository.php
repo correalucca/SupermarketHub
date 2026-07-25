@@ -45,4 +45,14 @@ class ProductRepository implements ProductRepositoryInterface
     {
         Product::where('id', $id)->decrement('stock_quantity', $quantity);
     }
+
+    public function findWithLock(int $id): Product
+    {
+        return Product::where('id', $id)->lockForUpdate()->firstOrFail();
+    }
+
+    public function createStockMovement(int $productId, array $data): void
+    {
+        Product::findOrFail($productId)->stockMovements()->create($data);
+    }
 }

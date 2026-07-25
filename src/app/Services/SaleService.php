@@ -20,10 +20,10 @@ class SaleService
 
     public function createSale(array $items): array
     {
-        $prepared = $this->stockService->verifyAndPrepare($items);
-
         DB::beginTransaction();
         try {
+            $prepared = $this->stockService->verifyAndPrepare($items, lock: true);
+
             $sale = $this->saleRepository->create([
                 'total' => $prepared['total'],
                 'status' => 'completed',
@@ -42,14 +42,17 @@ class SaleService
                     $data['quantity']
                 );
 
-                $data['product']->stockMovements()->create([
-                    'type' => StockMovementType::Out,
-                    'quantity' => $data['quantity'],
-                    'unit_price' => $data['unit_price'],
-                    'reference_type' => 'sale',
-                    'reference_id' => $sale->id,
-                    'notes' => "Venda #{$sale->id} - {$data['product']->name}",
-                ]);
+                $this->productRepository->createStockMovement(
+                    $data['product']->id,
+                    [
+                        'type' => StockMovementType::Out,
+                        'quantity' => $data['quantity'],
+                        'unit_price' => $data['unit_price'],
+                        'reference_type' => 'sale',
+                        'reference_id' => $sale->id,
+                        'notes' => "Venda #{$sale->id} - {$data['product']->name}",
+                    ]
+                );
             }
 
             DB::commit();
