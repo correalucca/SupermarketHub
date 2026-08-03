@@ -14,7 +14,8 @@ class ProductRequest extends FormRequest
 
     public function rules(): array
     {
-        $productId = $this->route('id');
+        // O apiResource gera o parâmetro como {product}; mantemos fallback para {id}.
+        $productId = $this->route('product') ?? $this->route('id');
 
         return [
             'sku' => [
