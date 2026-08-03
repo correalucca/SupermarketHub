@@ -36,21 +36,6 @@ class SaleServiceTest extends TestCase
         );
     }
 
-    public function test_calculate_total_delegates_to_stock_service(): void
-    {
-        $items = [
-            ['product_id' => 1, 'quantity' => 2],
-            ['product_id' => 2, 'quantity' => 3],
-        ];
-
-        $this->stockService
-            ->shouldReceive('calculateTotal')
-            ->with($items)
-            ->andReturn(37.50);
-
-        $this->assertSame(37.50, $this->saleService->calculateTotal($items));
-    }
-
     public function test_create_sale_persists_items_decrements_stock_and_dispatches_job(): void
     {
         Queue::fake();

@@ -47,16 +47,4 @@ class StockService implements StockServiceInterface
             'items' => $productData,
         ];
     }
-
-    public function calculateTotal(array $items): float
-    {
-        $total = 0;
-
-        foreach ($items as $item) {
-            $product = $this->productRepository->find($item['product_id']);
-            $total += $product->price * $item['quantity'];
-        }
-
-        return $total;
-    }
 }

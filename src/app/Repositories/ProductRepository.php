@@ -18,11 +18,6 @@ class ProductRepository implements ProductRepositoryInterface
         return Product::findOrFail($id);
     }
 
-    public function findBySku(string $sku): ?Product
-    {
-        return Product::where('sku', $sku)->first();
-    }
-
     public function create(array $data): Product
     {
         return Product::create($data);

@@ -114,32 +114,6 @@ class StockServiceTest extends TestCase
         ]);
     }
 
-    public function test_calculate_total_sums_prices(): void
-    {
-        $this->productRepository
-            ->shouldReceive('find')
-            ->with(1)
-            ->andReturn($this->product(1, 'SKU-1', 10.50, 100));
-        $this->productRepository
-            ->shouldReceive('find')
-            ->with(2)
-            ->andReturn($this->product(2, 'SKU-2', 5.25, 100));
-
-        $total = $this->stockService->calculateTotal([
-            ['product_id' => 1, 'quantity' => 2],
-            ['product_id' => 2, 'quantity' => 3],
-        ]);
-
-        $this->assertEquals((10.50 * 2) + (5.25 * 3), $total);
-    }
-
-    public function test_calculate_total_returns_zero_for_empty_items(): void
-    {
-        $this->productRepository->shouldNotReceive('find');
-
-        $this->assertSame(0.0, $this->stockService->calculateTotal([]));
-    }
-
     protected function tearDown(): void
     {
         Mockery::close();

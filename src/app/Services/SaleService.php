@@ -73,9 +73,4 @@ class SaleService
 
         return $sale->toArray();
     }
-
-    public function calculateTotal(array $items): float
-    {
-        return $this->stockService->calculateTotal($items);
-    }
 }

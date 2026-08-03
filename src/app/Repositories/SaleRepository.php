@@ -13,11 +13,6 @@ class SaleRepository implements SaleRepositoryInterface
         return Sale::create($data);
     }
 
-    public function find(int $id): Sale
-    {
-        return Sale::with('items.product')->findOrFail($id);
-    }
-
     public function addItem(Sale $sale, array $itemData): SaleItem
     {
         return $sale->items()->create($itemData);
