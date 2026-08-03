@@ -204,6 +204,26 @@ class SaleFlowTest extends TestCase
         $this->assertArrayHasKey('items', $response->json('errors'));
     }
 
+    public function test_returns_validation_error_when_items_are_missing(): void
+    {
+        $response = $this->postJson('/api/sales', [], $this->authHeaders);
+
+        $response->assertStatus(422);
+        $this->assertArrayHasKey('items', $response->json('errors'));
+    }
+
+    public function test_returns_validation_error_when_product_id_is_missing(): void
+    {
+        $response = $this->postJson('/api/sales', [
+            'items' => [
+                ['quantity' => 1],
+            ],
+        ], $this->authHeaders);
+
+        $response->assertStatus(422);
+        $this->assertArrayHasKey('items.0.product_id', $response->json('errors'));
+    }
+
     public function test_returns_validation_error_for_nonexistent_product(): void
     {
         $response = $this->postJson('/api/sales', [

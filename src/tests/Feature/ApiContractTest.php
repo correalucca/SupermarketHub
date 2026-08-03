@@ -58,4 +58,19 @@ class ApiContractTest extends TestCase
         ]);
         $this->assertStringContainsString('application/json', (string) $response->headers->get('Content-Type'));
     }
+
+    public function test_unhandled_exception_returns_500_json_contract(): void
+    {
+        // Rota temporária que lança uma exceção não mapeada para validar o contrato 500.
+        $this->app['router']->get('/api/boom', fn () => throw new \RuntimeException('Falha inesperada'));
+
+        $response = $this->getJson('/api/boom');
+
+        $response->assertStatus(500);
+        $response->assertJson([
+            'success' => false,
+            'code' => 500,
+        ]);
+        $this->assertStringContainsString('Falha inesperada', $response->json('message'));
+    }
 }
