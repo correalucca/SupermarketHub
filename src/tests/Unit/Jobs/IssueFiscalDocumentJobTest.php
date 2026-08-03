@@ -5,8 +5,8 @@ namespace Tests\Unit\Jobs;
 use App\Contracts\FiscalProviderInterface;
 use App\Contracts\SaleRepositoryInterface;
 use App\Jobs\IssueFiscalDocumentJob;
-use Illuminate\Foundation\Testing\TestCase;
 use Mockery;
+use Tests\TestCase;
 
 class IssueFiscalDocumentJobTest extends TestCase
 {

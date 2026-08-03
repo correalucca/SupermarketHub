@@ -6,8 +6,8 @@ use App\Contracts\ProductRepositoryInterface;
 use App\Exceptions\InsufficientStockException;
 use App\Models\Product;
 use App\Services\StockService;
-use Illuminate\Foundation\Testing\TestCase;
 use Mockery;
+use Tests\TestCase;
 
 class StockServiceTest extends TestCase
 {

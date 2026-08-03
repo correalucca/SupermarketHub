@@ -10,9 +10,9 @@ use App\Jobs\IssueFiscalDocumentJob;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Services\SaleService;
-use Illuminate\Foundation\Testing\TestCase;
 use Illuminate\Support\Facades\Queue;
 use Mockery;
+use Tests\TestCase;
 
 class SaleServiceTest extends TestCase
 {
