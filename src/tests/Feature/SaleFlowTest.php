@@ -2,8 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Contracts\FiscalProviderInterface;
+use App\Contracts\SaleRepositoryInterface;
 use App\Jobs\IssueFiscalDocumentJob;
 use App\Models\Product;
+use App\Models\Sale;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
@@ -265,5 +268,34 @@ class SaleFlowTest extends TestCase
             'success' => false,
             'code' => 401,
         ]);
+    }
+
+    public function test_fiscal_job_executed_synchronously_persists_protocol(): void
+    {
+        $payload = [
+            'items' => [
+                ['product_id' => $this->product->id, 'quantity' => 2],
+            ],
+        ];
+
+        $response = $this->postJson('/api/sales', $payload, $this->authHeaders);
+
+        $response->assertStatus(201);
+        $saleId = $response->json('data.id');
+
+        // A venda é criada sem protocolo fiscal; ele só é gravado pelo job.
+        $this->assertNull(Sale::find($saleId)->fiscal_protocol);
+
+        // Executa o job exatamente como foi despachado, mas com as
+        // dependências reais do container (provider fiscal + repository).
+        $job = Queue::pushed(IssueFiscalDocumentJob::class)->first();
+        $job->handle(
+            app(FiscalProviderInterface::class),
+            app(SaleRepositoryInterface::class),
+        );
+
+        $sale = Sale::find($saleId);
+        $this->assertNotNull($sale->fiscal_protocol);
+        $this->assertStringStartsWith('NF-', $sale->fiscal_protocol);
     }
 }
