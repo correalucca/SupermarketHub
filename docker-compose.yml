@@ -90,6 +90,20 @@ services:
     networks:
       - supermarket-network
 
+  # Executa a suíte do frontend com node_modules no filesystem do container
+  # (o bind-mount do frontend-dev torna o I/O de deps muito lento no Windows).
+  # Uso: docker compose run --rm frontend-tests
+  frontend-tests:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.tests
+    container_name: supermarket-frontend-tests
+    working_dir: /app
+    volumes:
+      - ./frontend/src:/app/src
+    networks:
+      - supermarket-network
+
 volumes:
   db-data:
   redis-data:
