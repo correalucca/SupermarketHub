@@ -35,8 +35,8 @@ class SaleController extends Controller
         tags: ['Vendas'],
         responses: [
             new OA\Response(response: 201, description: 'Venda criada com sucesso'),
-            new OA\Response(response: 400, description: 'Erro de validação'),
-            new OA\Response(response: 422, description: 'Estoque insuficiente'),
+            new OA\Response(response: 401, description: 'Não autenticado'),
+            new OA\Response(response: 422, description: 'Erro de validação ou estoque insuficiente'),
         ]
     )]
     public function store(SaleRequest $request)

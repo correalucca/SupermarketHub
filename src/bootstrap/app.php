@@ -1,6 +1,8 @@
 <?php
 
+use App\Exceptions\InsufficientStockException;
 use App\Http\Middleware\RequestIdMiddleware;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -41,6 +43,22 @@ return Application::configure(basePath: dirname(__DIR__))
                     'message' => 'Recurso não encontrado.',
                     'code' => 404,
                 ], 404);
+            }
+
+            if ($e instanceof AuthenticationException) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Não autenticado.',
+                    'code' => 401,
+                ], 401);
+            }
+
+            if ($e instanceof InsufficientStockException) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                    'code' => 422,
+                ], 422);
             }
 
             $statusCode = method_exists($e, 'getStatusCode')

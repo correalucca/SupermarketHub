@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Contracts\ProductRepositoryInterface;
 use App\Contracts\StockServiceInterface;
+use App\Exceptions\InsufficientStockException;
 
 class StockService implements StockServiceInterface
 {
@@ -22,9 +23,11 @@ class StockService implements StockServiceInterface
                 : $this->productRepository->find($item['product_id']);
 
             if ($product->stock_quantity < $item['quantity']) {
-                throw new \RuntimeException(
-                    "Estoque insuficiente para o produto '{$product->name}' (SKU: {$product->sku}). "
-                    . "Disponível: {$product->stock_quantity}, Solicitado: {$item['quantity']}"
+                throw InsufficientStockException::forProduct(
+                    $product->name,
+                    $product->sku,
+                    $product->stock_quantity,
+                    $item['quantity'],
                 );
             }
 
