@@ -5,32 +5,38 @@ namespace Tests\Unit\Services;
 use App\Contracts\ProductRepositoryInterface;
 use App\Contracts\SaleRepositoryInterface;
 use App\Contracts\StockServiceInterface;
+use App\Enums\StockMovementType;
+use App\Jobs\IssueFiscalDocumentJob;
 use App\Models\Product;
+use App\Models\Sale;
 use App\Services\SaleService;
 use Illuminate\Foundation\Testing\TestCase;
+use Illuminate\Support\Facades\Queue;
 use Mockery;
 
 class SaleServiceTest extends TestCase
 {
-    private SaleService $saleService;
+    private SaleRepositoryInterface $saleRepository;
+    private ProductRepositoryInterface $productRepository;
     private StockServiceInterface $stockService;
+    private SaleService $saleService;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $saleRepository = Mockery::mock(SaleRepositoryInterface::class);
-        $productRepository = Mockery::mock(ProductRepositoryInterface::class);
+        $this->saleRepository = Mockery::mock(SaleRepositoryInterface::class);
+        $this->productRepository = Mockery::mock(ProductRepositoryInterface::class);
         $this->stockService = Mockery::mock(StockServiceInterface::class);
 
         $this->saleService = new SaleService(
-            $saleRepository,
-            $productRepository,
+            $this->saleRepository,
+            $this->productRepository,
             $this->stockService,
         );
     }
 
-    public function test_calculate_total_with_multiple_items(): void
+    public function test_calculate_total_delegates_to_stock_service(): void
     {
         $items = [
             ['product_id' => 1, 'quantity' => 2],
@@ -40,39 +46,167 @@ class SaleServiceTest extends TestCase
         $this->stockService
             ->shouldReceive('calculateTotal')
             ->with($items)
-            ->andReturn((10.50 * 2) + (5.25 * 3));
+            ->andReturn(37.50);
 
-        $total = $this->saleService->calculateTotal($items);
-
-        $this->assertEquals((10.50 * 2) + (5.25 * 3), $total);
+        $this->assertSame(37.50, $this->saleService->calculateTotal($items));
     }
 
-    public function test_calculate_total_with_single_item(): void
+    public function test_create_sale_persists_items_decrements_stock_and_dispatches_job(): void
     {
-        $items = [
-            ['product_id' => 1, 'quantity' => 5],
+        Queue::fake();
+
+        $product = new Product([
+            'sku' => 'SKU-1',
+            'name' => 'Produto Teste',
+            'price' => 25.00,
+            'stock_quantity' => 100,
+        ]);
+
+        // 'id' não é fillable; atribuímos diretamente para simular um modelo persistido.
+        $product->id = 10;
+
+        $sale = Mockery::mock(Sale::class)->makePartial();
+        $sale->fill(['total' => 75.00, 'status' => 'completed']);
+        // 'id' não é fillable; atribuímos diretamente para simular um modelo persistido.
+        $sale->id = 1;
+        $sale->shouldReceive('load')
+            ->once()
+            ->with('items.product')
+            ->andReturnSelf();
+        $sale->shouldReceive('toArray')
+            ->andReturn([
+                'id' => 1,
+                'total' => 75.00,
+                'status' => 'completed',
+                'items' => [],
+            ]);
+
+        $items = [['product_id' => 10, 'quantity' => 3]];
+
+        $prepared = [
+            'total' => 75.00,
+            'items' => [
+                [
+                    'product' => $product,
+                    'quantity' => 3,
+                    'unit_price' => 25.00,
+                    'subtotal' => 75.00,
+                ],
+            ],
         ];
 
-        $this->stockService
-            ->shouldReceive('calculateTotal')
-            ->with($items)
-            ->andReturn(100.00);
+        $this->stockService->shouldReceive('verifyAndPrepare')
+            ->once()
+            ->with($items, true)
+            ->andReturn($prepared);
 
-        $total = $this->saleService->calculateTotal($items);
+        $this->saleRepository->shouldReceive('create')
+            ->once()
+            ->with(['total' => 75.00, 'status' => 'completed'])
+            ->andReturn($sale);
 
-        $this->assertEquals(100.00, $total);
+        $this->saleRepository->shouldReceive('addItem')
+            ->once()
+            ->with($sale, [
+                'product_id' => 10,
+                'quantity' => 3,
+                'unit_price' => 25.00,
+                'subtotal' => 75.00,
+            ])
+            ->andReturn(Mockery::mock(\App\Models\SaleItem::class));
+
+        $this->productRepository->shouldReceive('decrementStock')
+            ->once()
+            ->with(10, 3);
+
+        $this->productRepository->shouldReceive('createStockMovement')
+            ->once()
+            ->with(10, Mockery::on(function (array $data) {
+                return $data['type'] === StockMovementType::Out
+                    && $data['quantity'] === 3
+                    && $data['unit_price'] === 25.00
+                    && $data['reference_type'] === 'sale'
+                    && $data['reference_id'] === 1
+                    && str_contains($data['notes'], 'Venda #1');
+            }));
+
+        $result = $this->saleService->createSale($items);
+
+        $this->assertSame(75.00, $result['total']);
+
+        Queue::assertPushed(IssueFiscalDocumentJob::class, function (IssueFiscalDocumentJob $job) {
+            return $job->saleId === 1 && $job->total === 75.00;
+        });
     }
 
-    public function test_calculate_total_returns_zero_for_empty_items(): void
+    public function test_create_sale_rolls_back_and_rethrows_when_preparation_fails(): void
     {
-        $this->stockService
-            ->shouldReceive('calculateTotal')
-            ->with([])
-            ->andReturn(0.0);
+        $items = [['product_id' => 10, 'quantity' => 999]];
 
-        $total = $this->saleService->calculateTotal([]);
+        $this->stockService->shouldReceive('verifyAndPrepare')
+            ->once()
+            ->andThrow(new \RuntimeException('Estoque insuficiente'));
 
-        $this->assertEquals(0.0, $total);
+        $this->saleRepository->shouldNotReceive('create');
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Estoque insuficiente');
+
+        $this->saleService->createSale($items);
+    }
+
+    public function test_create_sale_rolls_back_when_persistence_fails(): void
+    {
+        Queue::fake();
+
+        $product = new Product([
+            'sku' => 'SKU-1',
+            'name' => 'Produto Teste',
+            'price' => 25.00,
+            'stock_quantity' => 100,
+        ]);
+
+        // 'id' não é fillable; atribuímos diretamente para simular um modelo persistido.
+        $product->id = 10;
+
+        $sale = Mockery::mock(Sale::class)->makePartial();
+        $sale->fill(['id' => 1, 'total' => 75.00, 'status' => 'completed']);
+
+        $items = [['product_id' => 10, 'quantity' => 3]];
+
+        $prepared = [
+            'total' => 75.00,
+            'items' => [
+                [
+                    'product' => $product,
+                    'quantity' => 3,
+                    'unit_price' => 25.00,
+                    'subtotal' => 75.00,
+                ],
+            ],
+        ];
+
+        $this->stockService->shouldReceive('verifyAndPrepare')
+            ->once()
+            ->andReturn($prepared);
+
+        $this->saleRepository->shouldReceive('create')
+            ->once()
+            ->andReturn($sale);
+
+        // Falha ao gravar o item: a transação deve ser revertida e a exceção propagada.
+        $this->saleRepository->shouldReceive('addItem')
+            ->once()
+            ->andThrow(new \RuntimeException('Falha ao gravar item'));
+
+        $this->productRepository->shouldNotReceive('decrementStock');
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Falha ao gravar item');
+
+        $this->saleService->createSale($items);
+
+        Queue::assertNotPushed(IssueFiscalDocumentJob::class);
     }
 
     protected function tearDown(): void
