@@ -270,6 +270,40 @@ class SaleFlowTest extends TestCase
         ]);
     }
 
+    public function test_sale_after_stock_depleted_returns_422(): void
+    {
+        $scarceProduct = Product::factory()->create([
+            'sku' => 'SCARCE-001',
+            'name' => 'Produto Escasso',
+            'price' => 10.00,
+            'category' => 'Teste',
+            'stock_quantity' => 5,
+        ]);
+
+        // Vende todo o estoque disponível.
+        $response = $this->postJson('/api/sales', [
+            'items' => [
+                ['product_id' => $scarceProduct->id, 'quantity' => 5],
+            ],
+        ], $this->authHeaders);
+        $response->assertStatus(201);
+
+        // Nova tentativa não pode ultrapassar o estoque: ele nunca fica negativo.
+        $response = $this->postJson('/api/sales', [
+            'items' => [
+                ['product_id' => $scarceProduct->id, 'quantity' => 1],
+            ],
+        ], $this->authHeaders);
+
+        $response->assertStatus(422);
+        $response->assertJson(['success' => false, 'code' => 422]);
+
+        $scarceProduct->refresh();
+        $this->assertEquals(0, $scarceProduct->stock_quantity);
+        $this->assertDatabaseCount('sales', 1);
+        $this->assertDatabaseCount('sale_items', 1);
+    }
+
     public function test_fiscal_job_executed_synchronously_persists_protocol(): void
     {
         $payload = [
