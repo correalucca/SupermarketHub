@@ -142,16 +142,34 @@ docker compose up -d frontend
 
 ## Testes
 
-A suíte usa **SQLite em memória** (configuração em `phpunit.xml`), portanto não depende do MySQL.
+### Backend (Laravel)
+
+A suíte roda por padrão em **SQLite em memória** (configuração em `phpunit.xml`) e também é validada contra **MySQL real** (mesmo comportamento do CI), o que exercita `lockForUpdate` (FOR UPDATE), constraints e tipos de produção.
 
 ```bash
+# Suíte completa em SQLite (padrão)
 docker compose exec app php artisan test
+
+# Suíte completa em MySQL real (integração)
+docker compose exec app bash -c "DB_CONNECTION=mysql DB_HOST=db DB_PORT=3306 DB_DATABASE=supermarket_test DB_USERNAME=root DB_PASSWORD=root php artisan test"
+
+# Cobertura (98.8% — falha abaixo de 90%)
+docker compose exec app php artisan test --coverage --min=90
 ```
 
 Cobertura atual:
 
-- **Unit:** `StockService`, `SaleService` (transação, persistência de itens, decremento de estoque e dispatch do job) e `IssueFiscalDocumentJob` (emissão + persistência do protocolo).
-- **Feature (API):** autenticação completa, CRUD de produtos, fluxo de venda (incluindo estoque insuficiente e rollback), contratos de erro `401/404/422` e middleware `X-Request-Id`.
+- **Unit:** `StockService` (verificação de estoque, lock e totais), `SaleService` (transação, rollback, persistência e dispatch do job) e `IssueFiscalDocumentJob` (emissão + persistência do protocolo).
+- **Feature (API):** autenticação completa, CRUD de produtos, fluxo de venda (estoque insuficiente, rollback e oversell), contratos de erro `401/404/422/500`, middleware `X-Request-Id`, persistência do protocolo fiscal e documentação Swagger.
+- **Concorrência (MySQL):** valida que `findWithLock` bloqueia uma segunda transação enquanto a linha está travada (prevenção de oversell).
+
+### Frontend (React)
+
+Suíte com **Vitest + Testing Library** (25 testes). Como o bind-mount do `frontend-dev` torna o I/O das dependências muito lento no Windows, os testes rodam num container dedicado com `node_modules` no filesystem da imagem:
+
+```bash
+docker compose run --rm frontend-tests
+```
 
 ## Endpoints da API
 

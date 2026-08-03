@@ -33,7 +33,7 @@ jobs:
         with:
           php-version: '8.2'
           extensions: mbstring, pdo, pdo_mysql, pdo_sqlite, bcmath, gd, zip
-          coverage: none
+          coverage: pcov
 
       - name: Get Composer cache directory
         id: composer-cache
@@ -55,9 +55,9 @@ jobs:
       - name: Generate app key
         run: php artisan key:generate
 
-      # SQLite em memória (configuração padrão do phpunit.xml)
-      - name: Run tests (SQLite)
-        run: php artisan test
+      # SQLite em memória (configuração padrão do phpunit.xml) + cobertura mínima.
+      - name: Run tests (SQLite) with coverage
+        run: php artisan test --coverage --min=90
 
       # MySQL real: exercita lockForUpdate (FOR UPDATE), constraints e
       # tipos DECIMAL/ENUM idênticos ao ambiente de produção.
@@ -70,3 +70,27 @@ jobs:
           DB_USERNAME: root
           DB_PASSWORD: root
         run: php artisan test
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
