@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y \
     libpng-dev \
     libonig-dev \
     libxml2-dev \
+    libsqlite3-dev \
     libzip-dev \
     zip \
     unzip \
@@ -20,6 +21,8 @@ RUN apt-get update && apt-get install -y \
     zip
 
 RUN pecl install redis && docker-php-ext-enable redis
+
+RUN pecl install pcov && docker-php-ext-enable pcov
 
 COPY --from=composer:2.7 /usr/bin/composer /usr/bin/composer
 
