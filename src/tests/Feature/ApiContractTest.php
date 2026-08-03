@@ -73,4 +73,33 @@ class ApiContractTest extends TestCase
         ]);
         $this->assertStringContainsString('Falha inesperada', $response->json('message'));
     }
+
+    public function test_non_api_requests_keep_default_error_handling(): void
+    {
+        // Rotas fora do /api/* devem manter o tratamento padrão do Laravel
+        // (o handler retorna null e não aplica o contrato JSON).
+        $response = $this->get('/pagina-web-inexistente');
+
+        $response->assertStatus(404);
+        $this->assertStringContainsString('text/html', (string) $response->headers->get('Content-Type'));
+        $this->assertStringNotContainsString('success', $response->getContent());
+    }
+
+    public function test_production_hides_internal_error_message(): void
+    {
+        // Simula ambiente de produção: a mensagem real da exceção não deve vazar.
+        $this->app['env'] = 'production';
+
+        $this->app['router']->get('/api/boom', fn () => throw new \RuntimeException('Segredo interno da aplicacao'));
+
+        $response = $this->getJson('/api/boom');
+
+        $response->assertStatus(500);
+        $response->assertJson([
+            'success' => false,
+            'message' => 'Erro interno do servidor.',
+            'code' => 500,
+        ]);
+        $this->assertStringNotContainsString('Segredo interno da aplicacao', $response->json('message'));
+    }
 }
