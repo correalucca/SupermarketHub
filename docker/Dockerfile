@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     unzip \
     && docker-php-ext-install \
     pdo_mysql \
+    pdo_sqlite \
     mbstring \
     exif \
     pcntl \
