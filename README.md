@@ -1,5 +1,7 @@
 # SupermarketHub
 
+[![CI](https://github.com/correalucca/SupermarketHub/actions/workflows/ci.yml/badge.svg)](https://github.com/correalucca/SupermarketHub/actions/workflows/ci.yml)
+
 MVP de sistema de supermercado para portfólio — API REST em **Laravel 12** com arquitetura em camadas, filas **Redis**, testes unitários e de integração, documentação **OpenAPI (Swagger)** e frontend em **React + TypeScript**.
 
 ## Funcionalidades
@@ -102,11 +104,12 @@ CACHE_STORE=redis
 
 > **Alternativa (SQLite):** para desenvolvimento rápido, crie `database/database.sqlite` e use `DB_CONNECTION=sqlite` no lugar do bloco MySQL.
 
-### 4. Gerar a chave da aplicação e rodar as migrations
+### 4. Gerar a chave da aplicação, rodar as migrations e gerar as docs Swagger
 
 ```bash
 docker compose exec app php artisan key:generate
 docker compose exec app php artisan migrate
+docker compose exec app php artisan l5-swagger:generate
 ```
 
 ### 5. Iniciar o worker de filas (emissão de nota fiscal)
@@ -139,6 +142,48 @@ docker compose up -d frontend
 | Frontend (produção) | http://localhost:3000            |
 | API                 | http://localhost:8000/api        |
 | Swagger UI          | http://localhost:8000/api/documentation |
+
+## Fluxo rápido de uso
+
+### 1. Registrar usuário
+
+```bash
+curl -X POST http://localhost:8000/api/register \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Admin","email":"admin@example.com","password":"secret123"}'
+```
+
+### 2. Login (capture o `token` da resposta)
+
+```bash
+curl -X POST http://localhost:8000/api/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@example.com","password":"secret123"}'
+```
+
+### 3. Criar produto (use o `TOKEN` obtido)
+
+```bash
+curl -X POST http://localhost:8000/api/products \
+  -H "Authorization: Bearer TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"sku":"ARROZ-1","name":"Arroz 5kg","price":25.00,"category":"Alimentos","stock_quantity":100}'
+```
+
+### 4. Registrar venda
+
+O estoque é baixado de forma transacional e a nota fiscal é emitida de forma assíncrona via fila:
+
+```bash
+curl -X POST http://localhost:8000/api/sales \
+  -H "Authorization: Bearer TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"items":[{"product_id":1,"quantity":3}]}'
+```
+
+### 5. Conferir o resultado
+
+O protocolo fiscal (`NF-XXXX`) aparece no log do `queue:work`, e o estoque reduzido pode ser conferido em `GET /api/products`.
 
 ## Testes
 
@@ -264,3 +309,19 @@ docker compose exec app php artisan tinker
 # Limpar caches
 docker compose exec app php artisan optimize:clear
 ```
+
+## Timeline do projeto
+
+A evolução do projeto foi entregue em **etapas/camadas**, refletida no histórico de commits (nomenclatura convencional, ex.: `feat:`, `fix:`, `test:`, `build:`, `docs:`, `ci:`):
+
+| Etapa | Camada            | Entregas                                                                                      |
+| ----- | ----------------- | --------------------------------------------------------------------------------------------- |
+| 1     | **Fundação**      | Scaffold Laravel 12 + Docker Compose (PHP-FPM, Nginx, MySQL 8, Redis), migrations de usuários, produtos, estoque e vendas |
+| 2     | **API**           | Autenticação Sanctum (`register`, `login`, `logout`, `me`), CRUD de produtos com SKU único, vendas com controle transacional de estoque e `lockForUpdate` |
+| 3     | **Robustez**      | `InsufficientStockException` de domínio (422), contratos de erro JSON padronizados, middleware `X-Request-Id`, fila Redis para emissão de nota fiscal |
+| 4     | **Documentação**  | OpenAPI 3 com l5-swagger (atributos `#[OA\...]`) e UI em `/api/documentation`                  |
+| 5     | **Testes backend**| Unit (serviços e job) + Feature (API): 54 testes, contratos `401/404/422/500`, rollback/oversell, integração com MySQL real, teste de concorrência (row lock) e cobertura de 98.8% |
+| 6     | **CI/CD**         | GitHub Actions: suíte SQLite com cobertura mínima de 90%, suíte de integração MySQL 8 e job do frontend (testes + build) |
+| 7     | **Frontend**      | SPA React 19 + TypeScript + Vite (login, cadastro, CRUD de produtos e nova venda), com suíte de 25 testes (Vitest + Testing Library) |
+
+> Cada camada foi commitada de forma atômica e com mensagem convencional, permitindo rastrear a linha do tempo do projeto pelo `git log`.
