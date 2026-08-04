@@ -4,6 +4,35 @@
 
 MVP de sistema de supermercado para portfólio — API REST em **Laravel 12** com arquitetura em camadas, filas **Redis**, testes unitários e de integração, documentação **OpenAPI (Swagger)** e frontend em **React + TypeScript**.
 
+## Início rápido (TL;DR)
+
+> Pré-requisito: **Docker 24+ com Docker Compose v2**.
+
+```bash
+docker compose up -d                            # sobe app, nginx, db, redis e frontend-dev
+docker compose exec app composer install        # dependências do backend
+docker compose exec app cp .env.example .env    # cria o .env (edite DB_*/REDIS_* para os serviços Docker)
+docker compose exec app php artisan key:generate
+docker compose exec app php artisan migrate
+docker compose exec app php artisan l5-swagger:generate
+```
+
+Em um segundo terminal, inicie o worker de filas (emissão de nota fiscal):
+
+```bash
+docker compose exec app php artisan queue:work redis --sleep=3 --tries=3
+```
+
+Acessos:
+
+| Recurso             | URL                              |
+| ------------------- | -------------------------------- |
+| Frontend (dev)      | http://localhost:5173            |
+| API                 | http://localhost:8000/api        |
+| Swagger UI          | http://localhost:8000/api/documentation |
+
+Instruções detalhadas nas seções **Como rodar** e **Fluxo rápido de uso** abaixo.
+
 ## Funcionalidades
 
 - Autenticação com Laravel Sanctum (`register`, `login`, `logout`, `me`)
